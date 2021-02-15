@@ -1,25 +1,40 @@
-name: CI
+name: Main workflow
 
 on:
-  pull_request:
-  push:
-    branches: [master, develop]
+  - pull_request
+  - push
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+        ocaml-version:
+          - 4.07.x
+          - 4.08.x
+          - 4.09.x
+          - 4.10.x
+          - 4.11.x
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Install System Deps
-      run: sudo apt update && sudo apt-get install -y --no-install-recommends wget swi-prolog mercurial ocaml opam
-    - name: debugging
-      run: opam --version
-    - name: Install pfff
-      run: |
-        opam init
-        ./scripts/install-opam-deps --ocaml-version 4.09.1
-        opam install -y pfff
-    - name: Run Tests
-      run: eval $(opam env); dune build && dune runtest -f
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Use OCaml ${{ matrix.ocaml-version }}
+        uses: actions-ml/setup-ocaml@master
+        with:
+          ocaml-version: ${{ matrix.ocaml-version }}
+          opam-local-packages: |
+            pfff.opam
+
+      - run: opam install . --deps-only --with-test
+
+      - run: opam exec -- dune build
+
+      - run: opam exec -- dune runtest
